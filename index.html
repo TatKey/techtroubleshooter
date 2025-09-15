@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bienvenue sur Tech Troubleshooter</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; padding: 0; background:#f7fafc; color:#111; }
+    header{ background:#0f172a; color:white; padding:16px; text-align:center;}
+    .wrap{ max-width:900px; margin:20px auto; padding:16px; }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;}
+    button{ padding:8px 12px; border-radius:6px; border:1px solid #ccc; cursor:pointer; background:white;}
+    .card{ background:white; padding:14px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+    .hidden{ display:none; }
+    .small{ font-size:0.9rem; color:#555; }
+    .badge{ background:#e6f4ea; padding:6px 8px; border-radius:999px; font-weight:600; color:#0b6b3a; }
+    ul{ padding-left:18px; }
+    footer{ text-align:center; color:#666; padding:12px 0; font-size:0.9rem;}
+  </style>
+</head>
+<body>
+  <header><h1>Bienvenue sur Tech Troubleshooter</h1></header>
+  <div class="wrap">
+    <div class="row">
+      <button id="btn-diagnosis" class="card">🔧 Démarrer un diagnostic</button>
+      <button id="btn-dashboard" class="card">📊 Voir le dashboard</button>
+    </div>
+
+    <div id="diagnosis" class="card">
+      <h2>1) Choisis le problème</h2>
+      <div id="problems" class="row"></div>
+
+      <div id="question-area" class="hidden card" style="margin-top:12px;">
+        <h3 id="q-title">Question</h3>
+        <div id="q-buttons" class="row"></div>
+      </div>
+
+      <div id="result" class="hidden card" style="margin-top:12px;"></div>
+    </div>
+
+    <div id="dashboard" class="card hidden">
+      <h2>Dashboard</h2>
+      <p class="small">Statistiques basiques à partir des sessions stockées dans ton navigateur.</p>
+      <div id="stats" style="margin-top:10px;"></div>
+      <h3 style="margin-top:12px;">Sessions (dernières)</h3>
+      <div id="sessions-list"></div>
+    </div>
+  </div>
+
+  <footer>Prototype pour portfolio - idée: transformer le workflow support en produit.</footer>
+
+<script>
+/* Données simples : scénarios et questions */
+const scenarios = {
+  "Pas d'internet": {
+    questions: [
+      "Le voyant du modem est-il allumé ?",
+      "Tous les appareils sont-ils affectés ?",
+      "Avez-vous déjà redémarré le modem ?"
+    ],
+    advice: ["Vérifier câble coaxial et connexions", "Redémarrer le modem", "Contacter le support si le problème persiste"]
+  },
+  "Wi-Fi lent": {
+    questions: [
+      "Êtes-vous près du routeur ?",
+      "Y a-t-il beaucoup d'appareils connectés ?",
+      "As-tu essayé de redémarrer le routeur ?"
+    ],
+    advice: ["Se rapprocher du routeur", "Vérifier les appareils utilisant la bande passante", "Changer de canal Wi-Fi si possible"]
+  },
+  "Problème TV": {
+    questions: [
+      "La box est-elle allumée ?",
+      "La TV affiche 'pas de signal' ?",
+      "Le câble HDMI/AV est-il bien branché ?"
+    ],
+    advice: ["Vérifier source HDMI", "Redémarrer la box TV", "Tester un autre port HDMI ou câble"]
+  },
+  "Son absent": {
+    questions:[
+      "Le volume est-il activé ?",
+      "Le casque est-il branché ?",
+      "As-tu essayé une autre chaîne ou app ?"
+    ],
+    advice:["Vérifier le volume et mute", "Débrancher les casques/câbles", "Redémarrer l'appareil"]
+  }
+};
+
+/* UI */
+const problemsDiv = document.getElementById('problems');
+const questionArea = document.getElementById('question-area');
+const qTitle = document.getElementById('q-title');
+const qButtons = document.getElementById('q-buttons');
+const resultDiv = document.getElementById('result');
+const dashboard = document.getElementById('dashboard');
+const diagnosis = document.getElementById('diagnosis');
+const statsDiv = document.getElementById('stats');
+const sessionsList = document.getElementById('sessions-list');
+
+let current = { key: null, idx: 0, answers: [] };
+
+/* Créer boutons de problèmes */
+for (const key of Object.keys(scenarios)) {
+  const b = document.createElement('button');
+  b.textContent = key;
+  b.onclick = () => startScenario(key);
+  problemsDiv.appendChild(b);
+}
+
+/* Boutons header */
+document.getElementById('btn-diagnosis').onclick = () => {
+  diagnosis.classList.remove('hidden');
+  dashboard.classList.add('hidden');
+};
+document.getElementById('btn-dashboard').onclick = () => {
+  diagnosis.classList.add('hidden');
+  dashboard.classList.remove('hidden');
+  renderDashboard();
+};
+
+function startScenario(key) {
+  current.key = key;
+  current.idx = 0;
+  current.answers = [];
+  showQuestion();
+}
+
+function showQuestion() {
+  const s = scenarios[current.key];
+  if (!s) return;
+  qTitle.textContent = s.questions[current.idx];
+  qButtons.innerHTML = '';
+  ['Oui','Non','Je sais pas'].forEach(text => {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.onclick = () => { current.answers.push(text); nextOrFinish(); };
+    qButtons.appendChild(b);
+  });
+  questionArea.classList.remove('hidden');
+  resultDiv.classList.add('hidden');
+}
+
+function nextOrFinish() {
+  const s = scenarios[current.key];
+  current.idx++;
+  if (current.idx < s.questions.length) {
+    showQuestion();
+  } else {
+    showResult();
+  }
+}
+
+function showResult() {
+  const s = scenarios[current.key];
+  questionArea.classList.add('hidden');
+  resultDiv.classList.remove('hidden');
+  resultDiv.innerHTML = '';
+  const h = document.createElement('h3');
+  h.textContent = `Résultat pour : ${current.key}`;
+  resultDiv.appendChild(h);
+
+  const advice = document.createElement('div');
+  advice.innerHTML = '<strong>Conseils :</strong><ul>' + s.advice.map(a => `<li>${a}</li>`).join('') + '</ul>';
+  resultDiv.appendChild(advice);
+
+  const actions = document.createElement('div');
+  actions.style.marginTop = '8px';
+  const ok = document.createElement('button');
+  ok.textContent = '✅ Marquer comme résolu';
+  ok.onclick = () => saveSession(true);
+  const nok = document.createElement('button');
+  nok.textContent = '❌ Non résolu';
+  nok.style.marginLeft='8px';
+  nok.onclick = () => saveSession(false);
+  actions.appendChild(ok); actions.appendChild(nok);
+  resultDiv.appendChild(actions);
+}
+
+/* Save sessions in localStorage */
+function readSessions(){ try { return JSON.parse(localStorage.getItem('support_sessions')||'[]'); } catch(e){ return []; } }
+function saveSession(resolved) {
+  const sess = {
+    id: Date.now(),
+    problem: current.key,
+    answers: current.answers,
+    resolved: !!resolved,
+    createdAt: new Date().toISOString()
+  };
+  const arr = readSessions();
+  arr.push(sess);
+  localStorage.setItem('support_sessions', JSON.stringify(arr));
+  // feedback visuel
+  resultDiv.innerHTML = `<p class="badge">Session sauvegardée — ${resolved ? 'résolue' : 'non résolue'}</p>`;
+}
+
+/* Dashboard rendering */
+function renderDashboard(){
+  const arr = readSessions();
+  const total = arr.length;
+  const resolved = arr.filter(a=>a.resolved).length;
+  const rate = total ? Math.round((resolved/total)*100) : 0;
+  const counts = {};
+  arr.forEach(s => counts[s.problem]= (counts[s.problem]||0)+1);
+  const top = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).slice(0,5);
+
+  statsDiv.innerHTML = `
+    <div class="row small"><div class="card">Total sessions : <strong>${total}</strong></div>
+    <div class="card">Résolu : <strong>${resolved}</strong></div>
+    <div class="card">Taux de résolution : <strong>${rate}%</strong></div></div>
+    <div style="margin-top:8px;"><strong>Top problèmes :</strong> ${top.map(t=>`${t} (${counts[t]})`).join(' • ') || '—'}</div>
+  `;
+
+  sessionsList.innerHTML = '';
+  arr.slice().reverse().forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.style.marginTop = '8px';
+    d.innerHTML = `<div class="small"><strong>${s.problem}</strong> — ${new Date(s.createdAt).toLocaleString()}</div>
+                   <div class="small">Résolu: ${s.resolved ? 'oui' : 'non'}</div>
+                   <details style="margin-top:6px"><summary class="small">Voir réponses</summary>
+                     <ul>${s.answers.map(a=>`<li>${a}</li>`).join('')}</ul>
+                   </details>`;
+    sessionsList.appendChild(d);
+  });
+}
+
+/* Au chargement, afficher la vue diagnostic */
+diagnosis.classList.remove('hidden');
+</script>
+</body>
+</html>
