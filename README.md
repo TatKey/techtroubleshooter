@@ -11,7 +11,7 @@ Fonctionnalités:
 -Dashboard: nombre de sessions, taux de résolution, top problèmes.
 
 Comment lancer:
-1. Site publié automatiquement par GitHub Pages: `https://tatkey.github.io/tech-troubleshooter/`
+1. Site publié automatiquement par GitHub Pages: `https://tatkey.github.io/techtroubleshooter/`
 2. Ou ouvrir `index.html` localement dans un navigateur.
 
 Auteur: [Fatoumata Koné] - Project to include in CV for admission.
